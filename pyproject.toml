@@ -1,0 +1,14 @@
+[project]
+name = "created-app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "edge-tts>=7.2.7",
+    "groq>=1.0.0",
+    "pandas>=2.3.3",
+    "pathlib>=1.0.1",
+    "streamlit>=1.53.1",
+]
