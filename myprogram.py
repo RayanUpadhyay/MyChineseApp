@@ -18,40 +18,129 @@ BACKGROUND_FILE = BASE_DIR / "background.png"
 # --------------------------------------------------
 # PAGE CONFIG (FIRST)
 # --------------------------------------------------
-st.set_page_config(page_title="Chinese Radicals", layout="wide")
+st.set_page_config(page_title="Mandalink", layout="wide")
 
 # --------------------------------------------------
-# BACKGROUND + SIDEBAR
-# --------------------------------------------------
-if BACKGROUND_FILE.exists():
-    import base64
-    encoded = base64.b64encode(BACKGROUND_FILE.read_bytes()).decode()
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background-image: url("data:image/png;base64,{encoded}");
-        background-size: cover;
-        background-attachment: fixed;
-    }}
-    section[data-testid="stSidebar"] {{
-        background-color: #b91c1c;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --------------------------------------------------
-# GAME UI CSS (OG STYLE)
+# GLOBAL CSS: GRADIENT BG + CHINESE FONT + GAME STYLES
 # --------------------------------------------------
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700;900&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Noto Serif SC', SimSun, '宋体', serif;
+    color: #fef3c7 !important;
+}
+
+.stApp {
+    background: linear-gradient(160deg,
+        #1a0505 0%,
+        #2d0a0a 25%,
+        #3d0f0f 50%,
+        #1f0808 75%,
+        #0f0303 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+}
+
+/* Global headings visibility */
+h1, h2, h3, h4, h5, h6, .stSubheader {
+    color: #D4AF37 !important;
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700 !important;
+}
+
+/* Form labels and placeholders */
+label {
+    color: #fde047 !important;
+    font-weight: 500 !important;
+}
+
+input::placeholder, textarea::placeholder {
+    color: #6b7280 !important;
+    -webkit-text-fill-color: #6b7280 !important;
+}
+
+/* Streamlit component contrasts */
+.stMarkdown p, .stMarkdown li {
+    color: #fef3c7 !important;
+    font-size: 1.05rem;
+}
+
+.stCaption {
+    color: #fde047 !important;
+    opacity: 0.8;
+}
+
+/* Meanings / Success / Info boxes legibility */
+[data-testid="stNotification"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+}
+
+[data-testid="stNotification"] p {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+}
+
+/* Input fields (search, etc) */
+div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"] {
+    background-color: #ffffff !important;
+    border: 2px solid #D4AF37 !important;
+    border-radius: 8px !important;
+}
+
+div[data-baseweb="input"] input, div[data-baseweb="textarea"] textarea {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+
+/* Dataframes / Tables legibility */
+[data-testid="stTable"], [data-testid="stDataFrame"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+/* Sidebar contrasts */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #7f1d1d 0%, #991b1b 50%, #7f1d1d 100%);
+    border-right: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #fef3c7 !important;
+}
+
+section[data-testid="stSidebar"] button {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    color: #fde047 !important;
+    border: 1px solid rgba(212, 175, 55, 0.2) !important;
+    transition: all 0.3s;
+}
+
+section[data-testid="stSidebar"] button:hover {
+    background-color: rgba(212, 175, 55, 0.1) !important;
+    border-color: #D4AF37 !important;
+}
+
+/* Game card */
 .game-card {
-    background: rgba(185, 28, 28, 0.92);
+    background: rgba(139, 0, 0, 0.88);
     padding: 2.5rem;
     border-radius: 24px;
     max-width: 720px;
-    margin: auto;
+    margin: 2rem auto;
     text-align: center;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.2);
+    border: 1px solid rgba(212, 175, 55, 0.15);
 }
 
 .radical-big {
@@ -59,6 +148,7 @@ st.markdown("""
     font-weight: 900;
     color: #fde047;
     margin: 1.5rem 0;
+    text-shadow: 0 4px 20px rgba(253,224,71,0.4);
 }
 
 .game-option button {
@@ -75,13 +165,205 @@ st.markdown("""
 .game-option button:hover {
     background: #1f2937;
 }
+
+/* HOME PAGE STYLES */
+.home-container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.home-logo {
+    width: 160px;
+    height: 160px;
+    border-radius: 32px;
+    box-shadow: 0 8px 40px rgba(212,175,55,0.35), 0 0 0 3px rgba(212,175,55,0.25);
+    margin-bottom: 1.5rem;
+    object-fit: cover;
+}
+
+.home-title {
+    font-size: 4.5rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #D4AF37, #FFD700, #C8960C);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+    margin: 0;
+    line-height: 1.1;
+    font-family: 'Noto Serif SC', SimSun, serif;
+}
+
+.home-tagline {
+    font-size: 1.3rem;
+    color: #fde047;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0.6rem 0 2rem 0;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.home-divider {
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+    margin: 0 auto 2.5rem auto;
+    border-radius: 2px;
+}
+
+.home-desc-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(212, 175, 55, 0.15);
+    border-radius: 24px;
+    padding: 2.5rem;
+    margin-bottom: 3rem;
+    backdrop-filter: blur(12px);
+    box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.05);
+}
+
+.home-desc {
+    font-size: 1.15rem;
+    color: #fef3c7;
+    line-height: 1.8;
+    margin: 0;
+    opacity: 0.9;
+    font-weight: 300;
+}
+
+.feature-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+}
+
+.feature-pill {
+    background: rgba(212,175,55,0.12);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 50px;
+    padding: 0.5rem 1.2rem;
+    color: #fde047;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+}
+
+.home-btn-row {
+    display: flex;
+    gap: 1.2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.home-btn-login {
+    padding: 1rem 3rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-radius: 50px;
+    background: linear-gradient(135deg, #C41E3A, #8B0000);
+    color: white;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    box-shadow: 0 8px 24px rgba(196,30,58,0.45);
+    transition: all 0.25s;
+    font-family: 'Noto Serif SC', sans-serif;
+}
+
+.home-btn-login:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(196,30,58,0.6);
+    background: linear-gradient(135deg, #dc143c, #9b0000);
+}
+
+.home-btn-register {
+    padding: 1rem 2.8rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-radius: 50px;
+    background: transparent;
+    color: #D4AF37;
+    border: 2px solid #D4AF37;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.25s;
+    font-family: 'Noto Serif SC', sans-serif;
+}
+
+.home-btn-register:hover {
+    background: rgba(212,175,55,0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(212,175,55,0.25);
+}
+
+.chinese-watermark {
+    font-size: 11rem;
+    color: rgba(212,175,55,0.05);
+    position: fixed;
+    bottom: -2rem;
+    right: 2rem;
+    pointer-events: none;
+    z-index: 0;
+    line-height: 1;
+}
+
+/* AUTH PAGE STYLES */
+.auth-container {
+    max-width: 480px;
+    margin: 2rem auto;
+    padding: 2.5rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.auth-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #D4AF37;
+    text-align: center;
+    margin-bottom: 0.3rem;
+    font-family: 'Noto Serif SC', SimSun, serif;
+}
+
+.auth-sub {
+    text-align: center;
+    color: #fde047;
+    opacity: 0.7;
+    font-size: 0.95rem;
+    margin-bottom: 2.5rem;
+}
+
+/* Streamlit Tabs Customization for Auth / General */
+button[data-baseweb="tab"] {
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    padding-bottom: 0.8rem !important;
+    color: rgba(254, 243, 199, 0.6) !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #D4AF37 !important;
+    border-bottom: 4px solid #D4AF37 !important;
+}
+
+button[data-baseweb="tab"]:hover {
+    color: #fde047 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
 # GROQ
 # --------------------------------------------------
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+client = Groq(api_key="your_api_key_here")
 
 # --------------------------------------------------
 # DATABASE INITIALIZATION (ONLY ONCE PER SESSION)
@@ -136,6 +418,8 @@ for key, val in {
     "logged_in": False,
     "user": None,
     "page": "Learn",
+    "app_page": "home",   # home | auth | app
+    "auth_tab": "login", # login | register
     "question": None,
     "answered": False,
     "correct": False,
@@ -143,43 +427,122 @@ for key, val in {
     "already_earned_xp": False,
     "timer_running": False,
     "time_left": 0,
+    "timed_score": 0,
+    "timed_correct": 0,
+    "timed_total": 0,
+    "timed_feedback": None,
+    "timed_results": False,
 }.items():
     st.session_state.setdefault(key, val)
 
 # --------------------------------------------------
-# LOGIN / SIGNUP
+# HOME PAGE
 # --------------------------------------------------
-if not st.session_state.logged_in:
-    st.title("🎓 Chinese Radicals Learning App")
-    
-    tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
-    
+if not st.session_state.logged_in and st.session_state.app_page == "home":
+    import base64
+    LOGO_FILE = BASE_DIR / "Mandalink (1).jpg.jpeg"
+    logo_html = ""
+    if LOGO_FILE.exists():
+        logo_b64 = base64.b64encode(LOGO_FILE.read_bytes()).decode()
+        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" class="home-logo" alt="Mandalink Logo" />'
+
+    st.markdown(f"""
+<div class="chinese-watermark">文</div>
+<div class="home-container">
+{logo_html}
+<h1 class="home-title">Mandalink</h1>
+<p class="home-tagline">Chinese Radicals Simplified</p>
+<div class="home-divider"></div>
+<div class="home-desc-card">
+<p class="home-desc">
+Mandalink is your gateway to mastering the building blocks of Chinese — radicals.
+Through interactive flashcards, AI-powered hints, timed challenges, and animated
+stroke-order guides, we make learning Chinese characters intuitive, engaging, and
+effective. Whether you're a complete beginner or brushing up your skills,
+Mandalink adapts to your pace and helps you build lasting knowledge.
+</p>
+</div>
+<div class="feature-row">
+<span class="feature-pill">🃏 Flashcards</span>
+<span class="feature-pill">🎮 Quiz Games</span>
+<span class="feature-pill">✍️ Stroke Order</span>
+<span class="feature-pill">⏱️ Timed Mode</span>
+<span class="feature-pill">🤖 AI Help</span>
+<span class="feature-pill">🏆 Leaderboard</span>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([2, 1, 2])
+    with col2:
+        st.markdown('<div style="text-align:center; margin-top:0.5rem;">', unsafe_allow_html=True)
+        if st.button("🔐  Login", use_container_width=True, type="primary", key="home_login_btn"):
+            st.session_state.app_page = "auth"
+            st.session_state.auth_tab = "login"
+            st.rerun()
+        st.markdown('<div style="margin-top:0.7rem;"></div>', unsafe_allow_html=True)
+        if st.button("📝  Register", use_container_width=True, key="home_register_btn"):
+            st.session_state.app_page = "auth"
+            st.session_state.auth_tab = "register"
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.stop()
+
+# --------------------------------------------------
+# AUTH PAGE (LOGIN / REGISTER)
+# --------------------------------------------------
+if not st.session_state.logged_in and st.session_state.app_page == "auth":
+    import base64
+    LOGO_FILE = BASE_DIR / "Mandalink (1).jpg.jpeg"
+    logo_html = ""
+    if LOGO_FILE.exists():
+        logo_b64 = base64.b64encode(LOGO_FILE.read_bytes()).decode()
+        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width:70px;height:70px;border-radius:16px;margin-bottom:0.8rem;box-shadow:0 4px 20px rgba(212,175,55,0.3);object-fit:cover;" alt="Logo" />'
+
+    # Back button (top-left)
+    if st.button("← Back", key="auth_back_btn"):
+        st.session_state.app_page = "home"
+        st.rerun()
+
+    tab_label = "Login" if st.session_state.auth_tab == "login" else "Register"
+
+    st.markdown(f"""
+    <div class="auth-container">
+        <div style="text-align:center;">{logo_html}</div>
+        <div class="auth-title">{tab_label}</div>
+        <div class="auth-sub">{'Welcome back to Mandalink' if tab_label == 'Login' else 'Join Mandalink today'}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
+
+    # Sync active tab if coming from home buttons
     with tab1:
-        st.subheader("Login to Your Account")
-        login_username = st.text_input("Username", key="login_user")
-        login_password = st.text_input("Password", type="password", key="login_pass")
-        
-        if st.button("Login", type="primary"):
+        login_username = st.text_input("Username", key="login_user", placeholder="Enter your username")
+        login_password = st.text_input("Password", type="password", key="login_pass", placeholder="Enter your password")
+
+        if st.button("Login", type="primary", use_container_width=True, key="auth_login_btn"):
             if login_username and login_password:
                 success, message = authenticate_user(login_username, login_password)
                 if success:
                     st.session_state.logged_in = True
                     st.session_state.user = login_username
+                    st.session_state.app_page = "app"
                     st.success(message)
                     st.rerun()
                 else:
                     st.error(message)
             else:
                 st.warning("Please enter both username and password")
-    
+
     with tab2:
-        st.subheader("Create New Account")
-        signup_username = st.text_input("Username", key="signup_user")
-        signup_email = st.text_input("Email", key="signup_email")
-        signup_password = st.text_input("Password", type="password", key="signup_pass")
-        signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm")
-        
-        if st.button("Sign Up", type="primary"):
+        signup_username = st.text_input("Username", key="signup_user", placeholder="Choose a username")
+        signup_email = st.text_input("Email", key="signup_email", placeholder="your@email.com")
+        signup_password = st.text_input("Password", type="password", key="signup_pass", placeholder="At least 4 characters")
+        signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm", placeholder="Repeat password")
+
+        if st.button("Create Account", type="primary", use_container_width=True, key="auth_signup_btn"):
             if not all([signup_username, signup_email, signup_password, signup_confirm]):
                 st.warning("Please fill in all fields")
             elif signup_password != signup_confirm:
@@ -214,6 +577,7 @@ for label in [
 
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
+    st.session_state.app_page = "home"
     st.rerun()
 
 # --------------------------------------------------
@@ -257,12 +621,11 @@ if st.session_state.page == "Learn":
             with col2:
                 st.markdown(f"### {r.meaning}")
                 if "pinyin" in r and pd.notna(r.pinyin):
-                    # Display pinyin with audio button
-                    st.markdown(f'<p style="color: #666; font-size: 1.1rem; margin-top: -0.5rem;">{r.pinyin}</p>', unsafe_allow_html=True)
+                    st.markdown(f'<p style="color: #fde047; font-size: 1.1rem; margin-top: -0.5rem; font-weight: 500;">{r.pinyin}</p>', unsafe_allow_html=True)
                     audio_html = create_audio_button_html(r.pinyin, "🔊 Listen")
                     if audio_html:
                         st.components.v1.html(audio_html, height=50)
-            st.markdown("---")
+            st.markdown('<div style="border-bottom: 1px solid rgba(212,175,55,0.2); margin: 1rem 0;"></div>', unsafe_allow_html=True)
 
 # --------------------------------------------------
 # FLASHCARDS (WITH AUDIO)
@@ -273,7 +636,11 @@ elif st.session_state.page == "Flashcards":
     if "card" not in st.session_state:
         st.session_state.card = RADICALS.sample(1).iloc[0]
 
-    st.markdown(f"## {st.session_state.card.radical}")
+    st.markdown(f"""
+    <div class="game-card">
+        <div style="color: #fde047; font-size: 1.1rem; letter-spacing: 0.15rem; font-weight: 700; margin-bottom: -0.5rem;">MANDALINK RADICAL STUDY</div>
+        <div class="radical-big">{st.session_state.card.radical}</div>
+    """, unsafe_allow_html=True)
     
     # Add audio button for pinyin
     if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin):
@@ -281,17 +648,30 @@ elif st.session_state.page == "Flashcards":
         if audio_html:
             st.components.v1.html(audio_html, height=50)
 
-    if st.checkbox("Show meaning"):
-        st.success(st.session_state.card.meaning)
-        if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin):
-            st.info(f"Pinyin: {st.session_state.card.pinyin}")
+    show = st.checkbox("Show Meaning", key="flash_show")
+    
+    if show:
+        st.markdown(f"""
+        <div style="
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid #D4AF37;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1.5rem 0;
+        ">
+            <h2 style="color: #fde047; margin: 0; font-size: 2rem;">{st.session_state.card.meaning}</h2>
+            {f'<p style="color: #fef3c7; font-size: 1.2rem; margin-top: 0.5rem;">Pinyin: {st.session_state.card.pinyin}</p>' if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin) else ''}
+        </div>
+        """, unsafe_allow_html=True)
 
-    if st.button("Next Card"):
+    if st.button("Next Card ➡"):
         st.session_state.card = RADICALS.sample(1).iloc[0]
         st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------------------------------------
-# GAME (OG STYLE WITH UNLIMITED RETRIES)
+# GAME 
 # --------------------------------------------------
 elif st.session_state.page == "Game":
     st.title("🎮 Guess the Meaning")
@@ -311,8 +691,11 @@ elif st.session_state.page == "Game":
 
     q, opts = st.session_state.question
 
-    st.markdown('<div class="game-card">', unsafe_allow_html=True)
-    st.markdown(f'<div class="radical-big">{q.radical}</div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="game-card">
+        <div style="color: #fde047; font-size: 1.1rem; letter-spacing: 0.15rem; font-weight: 700; margin-bottom: -0.5rem;">MANDALINK QUIZ CHALLENGE</div>
+        <div class="radical-big">{q.radical}</div>
+    """, unsafe_allow_html=True)
     
     # Show attempt counter if user has tried
     if st.session_state.attempts > 0:
@@ -349,20 +732,82 @@ elif st.session_state.page == "Game":
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# TIMED MODE (OG STYLE)
+# TIMED MODE 
 # --------------------------------------------------
 elif st.session_state.page == "Timed Mode":
     st.title("⏱️ Timed Mode")
 
-    if not st.session_state.timer_running:
-        if st.button("Start 60s Timer"):
+    # RESULTS SCREEN
+    if st.session_state.timed_results:
+        st.markdown('<div class="game-card">', unsafe_allow_html=True)
+        st.markdown('<h1 style="color: #D4AF37;">🎮 Challenge Complete!</h1>', unsafe_allow_html=True)
+        
+        acc = (st.session_state.timed_correct / st.session_state.timed_total * 100) if st.session_state.timed_total > 0 else 0
+        
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-around; gap: 1rem; margin: 2rem 0;">
+            <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
+                <div style="color: #fef3c7; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">⭐ Final Score</div>
+                <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{st.session_state.timed_score}</div>
+            </div>
+            <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
+                <div style="color: #fef3c7; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">✅ Correct</div>
+                <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{st.session_state.timed_correct}/{st.session_state.timed_total}</div>
+            </div>
+            <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
+                <div style="color: #fef3c7; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">🎯 Accuracy</div>
+                <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{int(acc)}%</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+            
+        st.markdown(f"### You earned **{st.session_state.timed_correct * 15} XP** this round!")
+        
+        if st.button("🔄 Play Again", type="primary", use_container_width=True):
+            st.session_state.timed_results = False
             st.session_state.timer_running = True
             st.session_state.time_left = 60
+            st.session_state.timed_score = 0
+            st.session_state.timed_correct = 0
+            st.session_state.timed_total = 0
             st.session_state.question = None
+            st.session_state.timed_feedback = None
             st.rerun()
+            
+        if st.button("🏠 Back to Learn", use_container_width=True):
+            st.session_state.page = "Learn"
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.stop()
 
+    # START SCREEN
+    if not st.session_state.timer_running:
+        st.markdown('<div class="game-card">', unsafe_allow_html=True)
+        st.markdown("""
+        <h2 style="color: #D4AF37;">Are you ready?</h2>
+        <p style="color: #fef3c7;">You have 60 seconds to identify as many radicals as possible. Each correct answer is worth 15 XP!</p>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 Start 60s Challenge", type="primary", use_container_width=True):
+            st.session_state.timer_running = True
+            st.session_state.time_left = 60
+            st.session_state.timed_score = 0
+            st.session_state.timed_correct = 0
+            st.session_state.timed_total = 0
+            st.session_state.question = None
+            st.session_state.timed_feedback = None
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ACTIVE GAME
     if st.session_state.timer_running:
-        st.markdown(f"### ⏳ {st.session_state.time_left}s remaining")
+        # Stats Bar
+        cols = st.columns([1, 1, 1])
+        with cols[0]:
+            st.markdown(f"### ⏳ {st.session_state.time_left}s")
+        with cols[1]:
+            st.markdown(f"<h3 style='text-align: center; color: #D4AF37;'>Score: {st.session_state.timed_score}</h3>", unsafe_allow_html=True)
+        with cols[2]:
+            st.markdown(f"<h3 style='text-align: right;'>✅ {st.session_state.timed_correct}/{st.session_state.timed_total}</h3>", unsafe_allow_html=True)
 
         if st.session_state.question is None:
             q = RADICALS.sample(1).iloc[0]
@@ -374,24 +819,41 @@ elif st.session_state.page == "Timed Mode":
 
         q, opts = st.session_state.question
 
-        st.markdown('<div class="game-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="radical-big">{q.radical}</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="game-card">
+            <div style="color: #fde047; font-size: 1.1rem; letter-spacing: 0.15rem; font-weight: 700; margin-bottom: -0.5rem;">MANDALINK SPEED CHALLENGE</div>
+            <div class="radical-big">{q.radical}</div>
+        """, unsafe_allow_html=True)
+
+        # Feedback Display
+        if st.session_state.timed_feedback:
+            st.markdown(st.session_state.timed_feedback, unsafe_allow_html=True)
+            st.session_state.timed_feedback = None 
 
         for opt in opts:
-            if st.button(opt, key=f"timed_{opt}"):
+            if st.button(opt, key=f"timed_{opt}", use_container_width=True):
+                st.session_state.timed_total += 1
                 if opt == q.meaning:
-                    update_xp(st.session_state.user, 15)
+                    st.session_state.timed_correct += 1
+                    st.session_state.timed_score += 25
+                    st.session_state.timed_feedback = '<div style="color: #16a34a; font-weight: bold; margin-bottom: 1rem;">✅ Correct! +25 XP</div>'
+                    update_xp(st.session_state.user, 5)
+                else:
+                    st.session_state.timed_feedback = '<div style="color: #dc2626; font-weight: bold; margin-bottom: 1rem;">❌ Wrong!</div>'
+                
                 st.session_state.question = None
                 st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # Timer logic
         time.sleep(1)
         st.session_state.time_left -= 1
 
         if st.session_state.time_left <= 0:
             st.session_state.timer_running = False
-            st.success("⏰ Time’s up!")
+            st.session_state.timed_results = True
+            st.session_state.question = None
 
         st.rerun()
 
@@ -408,7 +870,7 @@ elif st.session_state.page == "Leaderboard":
         st.info("No users yet!")
 
 # --------------------------------------------------
-# STROKE ORDER (INTERACTIVE WITH HANZI WRITER)
+# STROKE ORDER 
 # --------------------------------------------------
 elif st.session_state.page == "Stroke Order":
     st.title("✍️ Interactive Stroke Order")
@@ -453,15 +915,17 @@ elif st.session_state.page == "Stroke Order":
                         with st.container():
                             st.markdown(f"""
                             <div style="
-                                background: linear-gradient(135deg, rgba(185, 28, 28, 0.95), rgba(220, 38, 38, 0.95));
+                                background: rgba(255, 255, 255, 0.05);
                                 padding: 1.5rem;
                                 border-radius: 16px;
                                 text-align: center;
-                                box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+                                backdrop-filter: blur(8px);
+                                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                                border: 1px solid rgba(212, 175, 55, 0.25);
                                 margin-bottom: 1rem;
                             ">
-                                <h3 style="color: #fde047; margin: 0; font-size: 1.2rem;">{meaning}</h3>
-                                <p style="color: #fef3c7; margin: 0.25rem 0; font-size: 0.9rem;">{pinyin if pinyin else ''}</p>
+                                <h3 style="color: #D4AF37; margin: 0; font-size: 1.2rem; font-weight: 700;">{meaning}</h3>
+                                <p style="color: #fef3c7; margin: 0.25rem 0; font-size: 1rem; font-weight: 500; opacity: 0.9;">{pinyin if pinyin else ''}</p>
                             </div>
                             """, unsafe_allow_html=True)
                             
@@ -492,10 +956,11 @@ elif st.session_state.page == "Stroke Order":
                                             display: flex;
                                             flex-direction: column;
                                             align-items: center;
-                                            padding: 1rem;
-                                            background: rgba(255, 255, 255, 0.95);
-                                            border-radius: 12px;
-                                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                            padding: 1.2rem;
+                                            background: #fef3c7;
+                                            border-radius: 16px;
+                                            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                                            border: 2px solid #D4AF37;
                                         }}
                                         .controls {{
                                             margin-top: 1rem;
@@ -573,10 +1038,11 @@ elif st.session_state.page == "Stroke Order":
                                             display: flex;
                                             flex-direction: column;
                                             align-items: center;
-                                            padding: 1rem;
-                                            background: rgba(255, 255, 255, 0.95);
-                                            border-radius: 12px;
-                                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                            padding: 1.2rem;
+                                            background: #fef3c7;
+                                            border-radius: 16px;
+                                            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+                                            border: 2px solid #D4AF37;
                                         }}
                                         .controls {{
                                             margin-top: 1rem;
