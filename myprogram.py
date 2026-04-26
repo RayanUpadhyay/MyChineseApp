@@ -21,6 +21,25 @@ BACKGROUND_FILE = BASE_DIR / "background.png"
 st.set_page_config(page_title="Mandalink", layout="wide")
 
 # --------------------------------------------------
+# THEME (layout-only styling)
+# --------------------------------------------------
+st.session_state.setdefault("theme", "current")  # current | black | white
+
+THEME_OPTIONS = ["black", "white", "current"]
+THEME_LABEL = {"current": "Current", "black": "Black", "white": "White"}
+
+_THEME_PRESETS = {
+    "current": {"text_primary": "#fef3c7", "text_soft": "#fef3c7", "panel_bg": "#fef3c7"},
+    "black": {"text_primary": "#fef3c7", "text_soft": "#fef3c7", "panel_bg": "#111827"},
+    "white": {"text_primary": "#111827", "text_soft": "#374151", "panel_bg": "#ffffff"},
+}
+
+_theme = st.session_state.theme if st.session_state.theme in _THEME_PRESETS else "current"
+text_primary = _THEME_PRESETS[_theme]["text_primary"]
+text_soft = _THEME_PRESETS[_theme]["text_soft"]
+panel_bg = _THEME_PRESETS[_theme]["panel_bg"]
+
+# --------------------------------------------------
 # GLOBAL CSS: GRADIENT BG + CHINESE FONT + GAME STYLES
 # --------------------------------------------------
 st.markdown("""
@@ -360,6 +379,88 @@ button[data-baseweb="tab"]:hover {
 </style>
 """, unsafe_allow_html=True)
 
+# Theme overrides: keep "current" as the default CSS above
+if _theme == "black":
+    st.markdown("""
+    <style>
+    .stApp {
+        background: linear-gradient(160deg, #000000 0%, #0b0b0b 30%, #050505 100%) !important;
+    }
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0b0b0b 0%, #111827 50%, #0b0b0b 100%) !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #fef3c7 !important;
+    }
+    .game-card {
+        background: rgba(0, 0, 0, 0.75) !important;
+        box-shadow: 0 18px 50px rgba(0,0,0,0.75), 0 0 0 1px rgba(212,175,55,0.2) !important;
+    }
+    .home-desc-card {
+        background: rgba(255, 255, 255, 0.04) !important;
+    }
+    .auth-container {
+        background: rgba(255,255,255,0.06) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+elif _theme == "white":
+    st.markdown("""
+    <style>
+    .stApp {
+        background: linear-gradient(160deg, #ffffff 0%, #f3f4f6 35%, #ffffff 100%) !important;
+    }
+    html, body, [class*="css"] {
+        color: #111827 !important;
+    }
+    .stMarkdown p, .stMarkdown li {
+        color: #111827 !important;
+    }
+    label {
+        color: #b45309 !important;
+    }
+    .stCaption {
+        color: #b45309 !important;
+    }
+    [data-testid="stNotification"] p {
+        color: #111827 !important;
+    }
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 50%, #ffffff 100%) !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #111827 !important;
+    }
+    .home-desc-card {
+        background: rgba(0, 0, 0, 0.03) !important;
+    }
+    .home-desc {
+        color: #374151 !important;
+    }
+    .auth-container {
+        background: rgba(255,255,255,0.72) !important;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.10) !important;
+    }
+    .game-card {
+        background: rgba(255, 255, 255, 0.86) !important;
+        box-shadow: 0 18px 55px rgba(0,0,0,0.10), 0 0 0 1px rgba(212,175,55,0.22) !important;
+    }
+    .home-tagline {
+        color: #b45309 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # --------------------------------------------------
 # GROQ
 # --------------------------------------------------
@@ -418,7 +519,7 @@ for key, val in {
     "logged_in": False,
     "user": None,
     "page": "Learn",
-    "app_page": "home",   # home | auth | app
+    "app_page": "about",   # about | auth | app
     "auth_tab": "login", # login | register
     "question": None,
     "answered": False,
@@ -438,7 +539,7 @@ for key, val in {
 # --------------------------------------------------
 # HOME PAGE
 # --------------------------------------------------
-if not st.session_state.logged_in and st.session_state.app_page == "home":
+if not st.session_state.logged_in and st.session_state.app_page == "about":
     import base64
     LOGO_FILE = BASE_DIR / "Mandalink (1).jpg.jpeg"
     logo_html = ""
@@ -446,23 +547,31 @@ if not st.session_state.logged_in and st.session_state.app_page == "home":
         logo_b64 = base64.b64encode(LOGO_FILE.read_bytes()).decode()
         logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" class="home-logo" alt="Mandalink Logo" />'
 
+    st.radio(
+        "Theme",
+        options=THEME_OPTIONS,
+        format_func=lambda t: THEME_LABEL[t],
+        horizontal=True,
+        key="theme",
+    )
+
     st.markdown(f"""
 <div class="chinese-watermark">文</div>
 <div class="home-container">
 {logo_html}
-<h1 class="home-title">Mandalink</h1>
+<h1 class="home-title">About Mandalink</h1>
 <p class="home-tagline">Chinese Radicals Simplified</p>
 <div class="home-divider"></div>
 <div class="home-desc-card">
 <p class="home-desc">
-Mandalink is your gateway to mastering the building blocks of Chinese — radicals.
-Through interactive flashcards, AI-powered hints, timed challenges, and animated
-stroke-order guides, we make learning Chinese characters intuitive, engaging, and
-effective. Whether you're a complete beginner or brushing up your skills,
-Mandalink adapts to your pace and helps you build lasting knowledge.
+Mandalink is a learning app built to help you master Chinese radicals—the building blocks
+of Chinese characters. Use interactive flashcards, guided stroke order, and quiz-style
+practice to build recognition and understanding. When you want extra help, the AI helper
+can give targeted hints to keep you moving forward.
 </p>
 </div>
 <div class="feature-row">
+<span class="feature-pill">📘 Radical Meanings</span>
 <span class="feature-pill">🃏 Flashcards</span>
 <span class="feature-pill">🎮 Quiz Games</span>
 <span class="feature-pill">✍️ Stroke Order</span>
@@ -500,9 +609,17 @@ if not st.session_state.logged_in and st.session_state.app_page == "auth":
         logo_b64 = base64.b64encode(LOGO_FILE.read_bytes()).decode()
         logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width:70px;height:70px;border-radius:16px;margin-bottom:0.8rem;box-shadow:0 4px 20px rgba(212,175,55,0.3);object-fit:cover;" alt="Logo" />'
 
+    st.radio(
+        "Theme",
+        options=THEME_OPTIONS,
+        format_func=lambda t: THEME_LABEL[t],
+        horizontal=True,
+        key="theme",
+    )
+
     # Back button (top-left)
     if st.button("← Back", key="auth_back_btn"):
-        st.session_state.app_page = "home"
+        st.session_state.app_page = "about"
         st.rerun()
 
     tab_label = "Login" if st.session_state.auth_tab == "login" else "Register"
@@ -563,6 +680,15 @@ if not st.session_state.logged_in and st.session_state.app_page == "auth":
 # --------------------------------------------------
 st.sidebar.title("🔥 Menu")
 
+st.sidebar.radio(
+    "Theme",
+    options=THEME_OPTIONS,
+    format_func=lambda t: THEME_LABEL[t],
+    horizontal=True,
+    key="theme",
+)
+st.sidebar.markdown("---")
+
 for label in [
     "Learn",
     "Flashcards",
@@ -577,7 +703,7 @@ for label in [
 
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
-    st.session_state.app_page = "home"
+    st.session_state.app_page = "about"
     st.rerun()
 
 # --------------------------------------------------
@@ -660,7 +786,7 @@ elif st.session_state.page == "Flashcards":
             margin: 1.5rem 0;
         ">
             <h2 style="color: #fde047; margin: 0; font-size: 2rem;">{st.session_state.card.meaning}</h2>
-            {f'<p style="color: #fef3c7; font-size: 1.2rem; margin-top: 0.5rem;">Pinyin: {st.session_state.card.pinyin}</p>' if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin) else ''}
+            {f'<p style="color: {text_soft}; font-size: 1.2rem; margin-top: 0.5rem;">Pinyin: {st.session_state.card.pinyin}</p>' if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin) else ''}
         </div>
         """, unsafe_allow_html=True)
 
@@ -747,15 +873,15 @@ elif st.session_state.page == "Timed Mode":
         st.markdown(f"""
         <div style="display: flex; justify-content: space-around; gap: 1rem; margin: 2rem 0;">
             <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
-                <div style="color: #fef3c7; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">⭐ Final Score</div>
+                <div style="color: {text_soft}; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">⭐ Final Score</div>
                 <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{st.session_state.timed_score}</div>
             </div>
             <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
-                <div style="color: #fef3c7; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">✅ Correct</div>
+                <div style="color: {text_soft}; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">✅ Correct</div>
                 <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{st.session_state.timed_correct}/{st.session_state.timed_total}</div>
             </div>
             <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
-                <div style="color: #fef3c7; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">🎯 Accuracy</div>
+                <div style="color: {text_soft}; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">🎯 Accuracy</div>
                 <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{int(acc)}%</div>
             </div>
         </div>
@@ -783,9 +909,9 @@ elif st.session_state.page == "Timed Mode":
     # START SCREEN
     if not st.session_state.timer_running:
         st.markdown('<div class="game-card">', unsafe_allow_html=True)
-        st.markdown("""
+        st.markdown(f"""
         <h2 style="color: #D4AF37;">Are you ready?</h2>
-        <p style="color: #fef3c7;">You have 60 seconds to identify as many radicals as possible. Each correct answer is worth 15 XP!</p>
+        <p style="color: {text_soft};">You have 60 seconds to identify as many radicals as possible. Each correct answer is worth 15 XP!</p>
         """, unsafe_allow_html=True)
         if st.button("🚀 Start 60s Challenge", type="primary", use_container_width=True):
             st.session_state.timer_running = True
@@ -925,7 +1051,7 @@ elif st.session_state.page == "Stroke Order":
                                 margin-bottom: 1rem;
                             ">
                                 <h3 style="color: #D4AF37; margin: 0; font-size: 1.2rem; font-weight: 700;">{meaning}</h3>
-                                <p style="color: #fef3c7; margin: 0.25rem 0; font-size: 1rem; font-weight: 500; opacity: 0.9;">{pinyin if pinyin else ''}</p>
+                                <p style="color: {text_soft}; margin: 0.25rem 0; font-size: 1rem; font-weight: 500; opacity: 0.9;">{pinyin if pinyin else ''}</p>
                             </div>
                             """, unsafe_allow_html=True)
                             
@@ -957,7 +1083,7 @@ elif st.session_state.page == "Stroke Order":
                                             flex-direction: column;
                                             align-items: center;
                                             padding: 1.2rem;
-                                            background: #fef3c7;
+                                            background: {panel_bg};
                                             border-radius: 16px;
                                             box-shadow: 0 8px 32px rgba(0,0,0,0.4);
                                             border: 2px solid #D4AF37;
@@ -1039,7 +1165,7 @@ elif st.session_state.page == "Stroke Order":
                                             flex-direction: column;
                                             align-items: center;
                                             padding: 1.2rem;
-                                            background: #fef3c7;
+                                            background: {panel_bg};
                                             border-radius: 16px;
                                             box-shadow: 0 8px 32px rgba(0,0,0,0.4);
                                             border: 2px solid #D4AF37;
