@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import time
+import base64
 from pathlib import Path
 from groq import Groq
 from database import init_db, migrate_from_csv, create_user, authenticate_user, get_user, update_xp, get_leaderboard
@@ -13,7 +14,12 @@ from tts_helper import create_audio_button_html
 BASE_DIR = Path(__file__).resolve().parent
 USERS_FILE = BASE_DIR / "users.csv"
 RADICALS_FILE = BASE_DIR / "radicals.csv"
-BACKGROUND_FILE = BASE_DIR / "background.png"
+# Background supports png, jpg, or jpeg — whichever exists in the project folder
+_BG_CANDIDATES = [
+    (BASE_DIR / "background.png", "image/png"),
+    (BASE_DIR / "background.jpg", "image/jpeg"),
+    (BASE_DIR / "background.jpeg", "image/jpeg"),
+]
 
 # --------------------------------------------------
 # PAGE CONFIG (FIRST)
@@ -21,445 +27,337 @@ BACKGROUND_FILE = BASE_DIR / "background.png"
 st.set_page_config(page_title="Mandalink", layout="wide")
 
 # --------------------------------------------------
-# THEME (layout-only styling)
+# BACKGROUND IMAGE (BASE64 EMBED)
 # --------------------------------------------------
-st.session_state.setdefault("theme", "current")  # current | black | white
-
-THEME_OPTIONS = ["black", "white", "current"]
-THEME_LABEL = {"current": "Current", "black": "Black", "white": "White"}
-
-_THEME_PRESETS = {
-    "current": {"text_primary": "#fef3c7", "text_soft": "#fef3c7", "panel_bg": "#fef3c7"},
-    "black": {"text_primary": "#fef3c7", "text_soft": "#fef3c7", "panel_bg": "#111827"},
-    "white": {"text_primary": "#111827", "text_soft": "#374151", "panel_bg": "#ffffff"},
-}
-
-_theme = st.session_state.theme if st.session_state.theme in _THEME_PRESETS else "current"
-text_primary = _THEME_PRESETS[_theme]["text_primary"]
-text_soft = _THEME_PRESETS[_theme]["text_soft"]
-panel_bg = _THEME_PRESETS[_theme]["panel_bg"]
+_bg_css = "linear-gradient(135deg, #F5EDE3 0%, #EDE0D4 100%)"
+for _bg_path, _bg_mime in _BG_CANDIDATES:
+    if _bg_path.exists():
+        _bg_b64 = base64.b64encode(_bg_path.read_bytes()).decode()
+        _bg_css = f"url('data:image/{_bg_mime};base64,{_bg_b64}')"
+        break
 
 # --------------------------------------------------
-# GLOBAL CSS: GRADIENT BG + CHINESE FONT + GAME STYLES
+# GLOBAL CSS: PARCHMENT + CRIMSON THEME
 # --------------------------------------------------
-st.markdown("""
+st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700;900&display=swap');
 
-html, body, [class*="css"] {
+html, body, [class*="css"] {{
     font-family: 'Noto Serif SC', SimSun, '宋体', serif;
-    color: #fef3c7 !important;
-}
+    color: #5C0E0E !important;
+}}
 
-.stApp {
-    background: linear-gradient(160deg,
-        #1a0505 0%,
-        #2d0a0a 25%,
-        #3d0f0f 50%,
-        #1f0808 75%,
-        #0f0303 100%);
+.stApp {{
+    background-image: {_bg_css};
+    background-size: cover;
     background-attachment: fixed;
+    background-repeat: no-repeat;
     min-height: 100vh;
-}
+}}
 
-/* Global headings visibility */
-h1, h2, h3, h4, h5, h6, .stSubheader {
-    color: #D4AF37 !important;
+/* Headings */
+h1, h2, h3, h4, h5, h6, .stSubheader {{
+    color: #6B0000 !important;
     font-family: 'Noto Serif SC', serif;
     font-weight: 700 !important;
-}
+}}
 
-/* Form labels and placeholders */
-label {
-    color: #fde047 !important;
-    font-weight: 500 !important;
-}
-
-input::placeholder, textarea::placeholder {
-    color: #6b7280 !important;
-    -webkit-text-fill-color: #6b7280 !important;
-}
-
-/* Streamlit component contrasts */
-.stMarkdown p, .stMarkdown li {
-    color: #fef3c7 !important;
-    font-size: 1.05rem;
-}
-
-.stCaption {
-    color: #fde047 !important;
-    opacity: 0.8;
-}
-
-/* Meanings / Success / Info boxes legibility */
-[data-testid="stNotification"] {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(212, 175, 55, 0.3) !important;
-}
-
-[data-testid="stNotification"] p {
-    color: #ffffff !important;
+/* Form labels */
+label {{
+    color: #8B1A1A !important;
     font-weight: 600 !important;
-    font-size: 1.1rem !important;
-}
+}}
 
-/* Input fields (search, etc) */
-div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"] {
-    background-color: #ffffff !important;
-    border: 2px solid #D4AF37 !important;
+/* Placeholders */
+input::placeholder, textarea::placeholder {{
+    color: #A07070 !important;
+    -webkit-text-fill-color: #A07070 !important;
+}}
+
+/* Body text */
+.stMarkdown p, .stMarkdown li {{
+    color: #5C0E0E !important;
+    font-size: 1.05rem;
+}}
+
+.stCaption {{
+    color: #8B1A1A !important;
+    opacity: 0.9;
+}}
+
+/* Notifications */
+[data-testid="stNotification"] {{
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    border: 1px solid rgba(155, 68, 68, 0.4) !important;
     border-radius: 8px !important;
-}
+}}
 
-div[data-baseweb="input"] input, div[data-baseweb="textarea"] textarea {
-    color: #000000 !important;
+[data-testid="stNotification"] p {{
+    color: #5C0E0E !important;
+    font-weight: 600 !important;
+    font-size: 1.05rem !important;
+}}
+
+/* Input fields */
+div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"] {{
     background-color: #ffffff !important;
-    -webkit-text-fill-color: #000000 !important;
-}
+    border: 2px solid #9B4444 !important;
+    border-radius: 8px !important;
+}}
 
-/* Dataframes / Tables legibility */
-[data-testid="stTable"], [data-testid="stDataFrame"] {
-    background-color: rgba(255, 255, 255, 0.05) !important;
+div[data-baseweb="input"] input, div[data-baseweb="textarea"] textarea {{
+    color: #3C0A0A !important;
+    background-color: #ffffff !important;
+    -webkit-text-fill-color: #3C0A0A !important;
+}}
+
+/* Dataframes */
+[data-testid="stTable"], [data-testid="stDataFrame"] {{
+    background-color: rgba(255, 255, 255, 0.7) !important;
     border-radius: 12px;
     padding: 10px;
-}
+}}
 
-/* Sidebar contrasts */
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #7f1d1d 0%, #991b1b 50%, #7f1d1d 100%);
-    border-right: 1px solid rgba(212, 175, 55, 0.3);
-}
+/* ── SIDEBAR ── */
+section[data-testid="stSidebar"] {{
+    background: rgba(247, 240, 232, 0.98) !important;
+    border-right: 2px solid rgba(155, 68, 68, 0.18);
+}}
 
 section[data-testid="stSidebar"] .stMarkdown,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] .stCaption,
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: #fef3c7 !important;
-}
+section[data-testid="stSidebar"] h3 {{
+    color: #6B0000 !important;
+}}
 
-section[data-testid="stSidebar"] button {
-    background-color: rgba(0, 0, 0, 0.2) !important;
-    color: #fde047 !important;
-    border: 1px solid rgba(212, 175, 55, 0.2) !important;
-    transition: all 0.3s;
-}
+section[data-testid="stSidebar"] button {{
+    background-color: #A05555 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    transition: background-color 0.2s !important;
+    margin-bottom: 3px !important;
+    text-align: left !important;
+}}
 
-section[data-testid="stSidebar"] button:hover {
-    background-color: rgba(212, 175, 55, 0.1) !important;
-    border-color: #D4AF37 !important;
-}
+section[data-testid="stSidebar"] button:hover {{
+    background-color: #6B0000 !important;
+    color: #ffffff !important;
+}}
 
-/* Game card */
-.game-card {
-    background: rgba(139, 0, 0, 0.88);
-    padding: 2.5rem;
-    border-radius: 24px;
-    max-width: 720px;
-    margin: 2rem auto;
+/* ── GAME / FLASHCARD CARD ── */
+.game-card {{
+    background: #9B4444;
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    max-width: 820px;
+    margin: 1.2rem auto;
     text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.2);
-    border: 1px solid rgba(212, 175, 55, 0.15);
-}
+    box-shadow: 0 6px 24px rgba(107, 0, 0, 0.14);
+}}
 
-.radical-big {
+.radical-big {{
     font-size: 7rem;
     font-weight: 900;
-    color: #fde047;
+    color: #ffffff;
     margin: 1.5rem 0;
-    text-shadow: 0 4px 20px rgba(253,224,71,0.4);
-}
+    text-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}}
 
-.game-option button {
-    width: 100%;
-    padding: 1.2rem;
-    font-size: 1.25rem;
-    border-radius: 16px;
-    margin-bottom: 1rem;
-    background: #111827;
-    color: white;
-    border: none;
-}
-
-.game-option button:hover {
-    background: #1f2937;
-}
-
-/* HOME PAGE STYLES */
-.home-container {
-    max-width: 860px;
+/* ── HOME PAGE ── */
+.home-container {{
+    max-width: 760px;
     margin: 0 auto;
-    padding: 2rem 1rem;
+    padding: 2.5rem 1rem;
     text-align: center;
-}
+}}
 
-.home-logo {
+.home-logo {{
     width: 160px;
     height: 160px;
-    border-radius: 32px;
-    box-shadow: 0 8px 40px rgba(212,175,55,0.35), 0 0 0 3px rgba(212,175,55,0.25);
-    margin-bottom: 1.5rem;
-    object-fit: cover;
-}
+    border-radius: 20px;
+    margin-bottom: 1rem;
+    object-fit: contain;
+}}
 
-.home-title {
-    font-size: 4.5rem;
+.home-title {{
+    font-size: 4rem;
     font-weight: 900;
-    background: linear-gradient(135deg, #D4AF37, #FFD700, #C8960C);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.02em;
-    margin: 0;
+    color: #6B0000 !important;
+    -webkit-text-fill-color: #6B0000 !important;
+    background: none;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    margin: 0 0 0.3rem 0;
     line-height: 1.1;
     font-family: 'Noto Serif SC', SimSun, serif;
-}
+}}
 
-.home-tagline {
-    font-size: 1.3rem;
-    color: #fde047;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin: 0.6rem 0 2rem 0;
-    font-weight: 500;
-    opacity: 0.9;
-}
+.home-tagline {{
+    font-size: 1.2rem;
+    color: #8B1A1A;
+    letter-spacing: 0.05em;
+    margin: 0 0 1.8rem 0;
+    font-weight: 600;
+}}
 
-.home-divider {
-    width: 80px;
-    height: 3px;
-    background: linear-gradient(90deg, transparent, #D4AF37, transparent);
-    margin: 0 auto 2.5rem auto;
+.home-divider {{
+    width: 60px;
+    height: 2px;
+    background: #9B4444;
+    margin: 0 auto 2rem auto;
     border-radius: 2px;
-}
+}}
 
-.home-desc-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(212, 175, 55, 0.15);
-    border-radius: 24px;
-    padding: 2.5rem;
-    margin-bottom: 3rem;
-    backdrop-filter: blur(12px);
-    box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.05);
-}
+.home-desc-card {{
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 16px;
+    padding: 1.8rem 2rem;
+    margin-bottom: 2rem;
+}}
 
-.home-desc {
-    font-size: 1.15rem;
-    color: #fef3c7;
-    line-height: 1.8;
+.home-desc {{
+    font-size: 1.1rem;
+    color: #5C0E0E;
+    line-height: 1.85;
     margin: 0;
-    opacity: 0.9;
-    font-weight: 300;
-}
-
-.feature-row {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 2.5rem;
-}
-
-.feature-pill {
-    background: rgba(212,175,55,0.12);
-    border: 1px solid rgba(212,175,55,0.3);
-    border-radius: 50px;
-    padding: 0.5rem 1.2rem;
-    color: #fde047;
-    font-size: 0.9rem;
     font-weight: 500;
-    letter-spacing: 0.05em;
-}
+}}
 
-.home-btn-row {
-    display: flex;
-    gap: 1.2rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
-}
+.feature-section {{
+    margin-bottom: 2rem;
+}}
 
-.home-btn-login {
-    padding: 1rem 3rem;
-    font-size: 1.1rem;
+.feature-label {{
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8B1A1A;
     font-weight: 700;
-    border-radius: 50px;
-    background: linear-gradient(135deg, #C41E3A, #8B0000);
-    color: white;
-    border: none;
-    cursor: pointer;
-    letter-spacing: 0.05em;
-    box-shadow: 0 8px 24px rgba(196,30,58,0.45);
-    transition: all 0.25s;
-    font-family: 'Noto Serif SC', sans-serif;
-}
+    margin-bottom: 0.5rem;
+}}
 
-.home-btn-login:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(196,30,58,0.6);
-    background: linear-gradient(135deg, #dc143c, #9b0000);
-}
+.feature-list {{
+    color: #5C0E0E;
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0;
+}}
 
-.home-btn-register {
-    padding: 1rem 2.8rem;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 50px;
-    background: transparent;
-    color: #D4AF37;
-    border: 2px solid #D4AF37;
-    cursor: pointer;
-    letter-spacing: 0.05em;
-    transition: all 0.25s;
-    font-family: 'Noto Serif SC', sans-serif;
-}
+/* ── AUTH PAGE ── */
+.auth-container {{
+    max-width: 540px;
+    margin: 0.5rem auto 1.5rem auto;
+    padding: 1.2rem 2.5rem;
+    text-align: center;
+}}
 
-.home-btn-register:hover {
-    background: rgba(212,175,55,0.15);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(212,175,55,0.25);
-}
-
-.chinese-watermark {
-    font-size: 11rem;
-    color: rgba(212,175,55,0.05);
-    position: fixed;
-    bottom: -2rem;
-    right: 2rem;
-    pointer-events: none;
-    z-index: 0;
-    line-height: 1;
-}
-
-/* AUTH PAGE STYLES */
-.auth-container {
-    max-width: 480px;
-    margin: 2rem auto;
-    padding: 2.5rem;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(212,175,55,0.2);
-    border-radius: 24px;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-}
-
-.auth-title {
+.auth-title {{
     font-size: 2rem;
-    font-weight: 700;
-    color: #D4AF37;
-    text-align: center;
-    margin-bottom: 0.3rem;
+    font-weight: 900;
+    color: #6B0000;
+    margin-bottom: 0.2rem;
     font-family: 'Noto Serif SC', SimSun, serif;
-}
+}}
 
-.auth-sub {
-    text-align: center;
-    color: #fde047;
-    opacity: 0.7;
-    font-size: 0.95rem;
-    margin-bottom: 2.5rem;
-}
+.auth-sub {{
+    color: #8B1A1A;
+    font-size: 1rem;
+    margin-bottom: 0.8rem;
+    font-weight: 500;
+}}
 
-/* Streamlit Tabs Customization for Auth / General */
-button[data-baseweb="tab"] {
-    font-size: 1.5rem !important;
+/* ── TABS ── */
+button[data-baseweb="tab"] {{
+    font-size: 1.05rem !important;
     font-weight: 700 !important;
-    padding-bottom: 0.8rem !important;
-    color: rgba(254, 243, 199, 0.6) !important;
-}
+    padding: 0.65rem 2.5rem !important;
+    color: #ffffff !important;
+    background-color: #A05555 !important;
+    border-radius: 4px 4px 0 0 !important;
+    border: none !important;
+}}
 
-button[data-baseweb="tab"][aria-selected="true"] {
-    color: #D4AF37 !important;
-    border-bottom: 4px solid #D4AF37 !important;
-}
+button[data-baseweb="tab"][aria-selected="true"] {{
+    background-color: #6B0000 !important;
+    color: #ffffff !important;
+    border-bottom: 3px solid #6B0000 !important;
+}}
 
-button[data-baseweb="tab"]:hover {
-    color: #fde047 !important;
-}
+button[data-baseweb="tab"]:hover {{
+    background-color: #8B2222 !important;
+    color: #ffffff !important;
+}}
+
+/* ── PRIMARY BUTTONS ── */
+.stButton > button[kind="primary"],
+[data-testid="baseButton-primary"] {{
+    background-color: #6B0000 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    padding: 0.65rem 1.5rem !important;
+}}
+
+.stButton > button[kind="primary"]:hover,
+[data-testid="baseButton-primary"]:hover {{
+    background-color: #5C0000 !important;
+}}
+
+/* ── DEFAULT BUTTONS ── */
+.stButton > button {{
+    background-color: #A05555 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+}}
+
+.stButton > button:hover {{
+    background-color: #8B3333 !important;
+    color: #ffffff !important;
+}}
+
+/* ── GAME ANSWER BUTTONS (outlined style via wrapper) ── */
+.answer-opt .stButton > button {{
+    background-color: #ffffff !important;
+    color: #5C0E0E !important;
+    border: 1.5px solid #9B4444 !important;
+    border-radius: 8px !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    text-align: left !important;
+}}
+
+.answer-opt .stButton > button:hover {{
+    background-color: #F5EDE3 !important;
+    border-color: #6B0000 !important;
+    color: #5C0E0E !important;
+}}
+
+.answer-opt .stButton > button:disabled {{
+    opacity: 0.6 !important;
+}}
+
+/* Checkbox */
+.stCheckbox label {{
+    color: #5C0E0E !important;
+}}
+
+/* Text area */
+textarea {{
+    color: #3C0A0A !important;
+    background-color: #ffffff !important;
+}}
 </style>
 """, unsafe_allow_html=True)
-
-# Theme overrides: keep "current" as the default CSS above
-if _theme == "black":
-    st.markdown("""
-    <style>
-    .stApp {
-        background: linear-gradient(160deg, #000000 0%, #0b0b0b 30%, #050505 100%) !important;
-    }
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0b0b0b 0%, #111827 50%, #0b0b0b 100%) !important;
-    }
-    section[data-testid="stSidebar"] .stMarkdown,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] .stCaption,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 {
-        color: #fef3c7 !important;
-    }
-    .game-card {
-        background: rgba(0, 0, 0, 0.75) !important;
-        box-shadow: 0 18px 50px rgba(0,0,0,0.75), 0 0 0 1px rgba(212,175,55,0.2) !important;
-    }
-    .home-desc-card {
-        background: rgba(255, 255, 255, 0.04) !important;
-    }
-    .auth-container {
-        background: rgba(255,255,255,0.06) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-elif _theme == "white":
-    st.markdown("""
-    <style>
-    .stApp {
-        background: linear-gradient(160deg, #ffffff 0%, #f3f4f6 35%, #ffffff 100%) !important;
-    }
-    html, body, [class*="css"] {
-        color: #111827 !important;
-    }
-    .stMarkdown p, .stMarkdown li {
-        color: #111827 !important;
-    }
-    label {
-        color: #b45309 !important;
-    }
-    .stCaption {
-        color: #b45309 !important;
-    }
-    [data-testid="stNotification"] p {
-        color: #111827 !important;
-    }
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 50%, #ffffff 100%) !important;
-    }
-    section[data-testid="stSidebar"] .stMarkdown,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] .stCaption,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 {
-        color: #111827 !important;
-    }
-    .home-desc-card {
-        background: rgba(0, 0, 0, 0.03) !important;
-    }
-    .home-desc {
-        color: #374151 !important;
-    }
-    .auth-container {
-        background: rgba(255,255,255,0.72) !important;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.10) !important;
-    }
-    .game-card {
-        background: rgba(255, 255, 255, 0.86) !important;
-        box-shadow: 0 18px 55px rgba(0,0,0,0.10), 0 0 0 1px rgba(212,175,55,0.22) !important;
-    }
-    .home-tagline {
-        color: #b45309 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # --------------------------------------------------
 # GROQ
@@ -519,8 +417,8 @@ for key, val in {
     "logged_in": False,
     "user": None,
     "page": "Learn",
-    "app_page": "about",   # about | auth | app
-    "auth_tab": "login", # login | register
+    "app_page": "home",   # home | auth | app
+    "auth_tab": "login",  # login | register
     "question": None,
     "answered": False,
     "correct": False,
@@ -539,45 +437,31 @@ for key, val in {
 # --------------------------------------------------
 # HOME PAGE
 # --------------------------------------------------
-if not st.session_state.logged_in and st.session_state.app_page == "about":
-    import base64
+if not st.session_state.logged_in and st.session_state.app_page == "home":
     LOGO_FILE = BASE_DIR / "Mandalink (1).jpg.jpeg"
     logo_html = ""
     if LOGO_FILE.exists():
         logo_b64 = base64.b64encode(LOGO_FILE.read_bytes()).decode()
         logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" class="home-logo" alt="Mandalink Logo" />'
 
-    st.radio(
-        "Theme",
-        options=THEME_OPTIONS,
-        format_func=lambda t: THEME_LABEL[t],
-        horizontal=True,
-        key="theme",
-    )
-
     st.markdown(f"""
-<div class="chinese-watermark">文</div>
 <div class="home-container">
 {logo_html}
-<h1 class="home-title">About Mandalink</h1>
+<h1 class="home-title">Mandalink</h1>
 <p class="home-tagline">Chinese Radicals Simplified</p>
 <div class="home-divider"></div>
 <div class="home-desc-card">
 <p class="home-desc">
-Mandalink is a learning app built to help you master Chinese radicals—the building blocks
-of Chinese characters. Use interactive flashcards, guided stroke order, and quiz-style
-practice to build recognition and understanding. When you want extra help, the AI helper
-can give targeted hints to keep you moving forward.
+Mandalink is your gateway to mastering the building blocks of Chinese — radicals.
+Through interactive flashcards, AI-powered hints, timed challenges, and animated
+stroke-order guides, we make learning Chinese characters intuitive, engaging, and
+effective. Whether you're a complete beginner or brushing up your skills,
+Mandalink adapts to your pace and helps you build lasting knowledge.
 </p>
 </div>
-<div class="feature-row">
-<span class="feature-pill">📘 Radical Meanings</span>
-<span class="feature-pill">🃏 Flashcards</span>
-<span class="feature-pill">🎮 Quiz Games</span>
-<span class="feature-pill">✍️ Stroke Order</span>
-<span class="feature-pill">⏱️ Timed Mode</span>
-<span class="feature-pill">🤖 AI Help</span>
-<span class="feature-pill">🏆 Leaderboard</span>
+<div class="feature-section">
+<p class="feature-label">Featuring</p>
+<p class="feature-list">Flashcards &bull; Quiz Games &bull; Stroke Order &bull; Timed Mode &bull; AI Help &bull; Leaderboard</p>
 </div>
 </div>
 """, unsafe_allow_html=True)
@@ -585,12 +469,12 @@ can give targeted hints to keep you moving forward.
     col1, col2, col3 = st.columns([2, 1, 2])
     with col2:
         st.markdown('<div style="text-align:center; margin-top:0.5rem;">', unsafe_allow_html=True)
-        if st.button("🔐  Login", use_container_width=True, type="primary", key="home_login_btn"):
+        if st.button("Login", use_container_width=True, type="primary", key="home_login_btn"):
             st.session_state.app_page = "auth"
             st.session_state.auth_tab = "login"
             st.rerun()
-        st.markdown('<div style="margin-top:0.7rem;"></div>', unsafe_allow_html=True)
-        if st.button("📝  Register", use_container_width=True, key="home_register_btn"):
+        st.markdown('<div style="margin-top:0.5rem;"></div>', unsafe_allow_html=True)
+        if st.button("Register", use_container_width=True, key="home_register_btn"):
             st.session_state.app_page = "auth"
             st.session_state.auth_tab = "register"
             st.rerun()
@@ -602,37 +486,26 @@ can give targeted hints to keep you moving forward.
 # AUTH PAGE (LOGIN / REGISTER)
 # --------------------------------------------------
 if not st.session_state.logged_in and st.session_state.app_page == "auth":
-    import base64
     LOGO_FILE = BASE_DIR / "Mandalink (1).jpg.jpeg"
     logo_html = ""
     if LOGO_FILE.exists():
         logo_b64 = base64.b64encode(LOGO_FILE.read_bytes()).decode()
-        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width:70px;height:70px;border-radius:16px;margin-bottom:0.8rem;box-shadow:0 4px 20px rgba(212,175,55,0.3);object-fit:cover;" alt="Logo" />'
-
-    st.radio(
-        "Theme",
-        options=THEME_OPTIONS,
-        format_func=lambda t: THEME_LABEL[t],
-        horizontal=True,
-        key="theme",
-    )
+        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width:110px;height:110px;object-fit:contain;margin-bottom:0.6rem;" alt="Logo" />'
 
     # Back button (top-left)
     if st.button("← Back", key="auth_back_btn"):
-        st.session_state.app_page = "about"
+        st.session_state.app_page = "home"
         st.rerun()
-
-    tab_label = "Login" if st.session_state.auth_tab == "login" else "Register"
 
     st.markdown(f"""
     <div class="auth-container">
         <div style="text-align:center;">{logo_html}</div>
-        <div class="auth-title">{tab_label}</div>
-        <div class="auth-sub">{'Welcome back to Mandalink' if tab_label == 'Login' else 'Join Mandalink today'}</div>
+        <div class="auth-title">Mandalink</div>
+        <div class="auth-sub">Chinese Radicals Simplified</div>
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["🔐 Login", "📝 Register"])
+    tab1, tab2 = st.tabs(["Login", "Register"])
 
     # Sync active tab if coming from home buttons
     with tab1:
@@ -659,7 +532,7 @@ if not st.session_state.logged_in and st.session_state.app_page == "auth":
         signup_password = st.text_input("Password", type="password", key="signup_pass", placeholder="At least 4 characters")
         signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm", placeholder="Repeat password")
 
-        if st.button("Create Account", type="primary", use_container_width=True, key="auth_signup_btn"):
+        if st.button("Register", type="primary", use_container_width=True, key="auth_signup_btn"):
             if not all([signup_username, signup_email, signup_password, signup_confirm]):
                 st.warning("Please fill in all fields")
             elif signup_password != signup_confirm:
@@ -678,16 +551,24 @@ if not st.session_state.logged_in and st.session_state.app_page == "auth":
 # --------------------------------------------------
 # SIDEBAR
 # --------------------------------------------------
-st.sidebar.title("🔥 Menu")
+_LOGO_FILE = BASE_DIR / "Mandalink (1).jpg.jpeg"
+if _LOGO_FILE.exists():
+    _sidebar_logo_b64 = base64.b64encode(_LOGO_FILE.read_bytes()).decode()
+    st.sidebar.markdown(
+        f'<div style="text-align:center;padding:1.2rem 0 0.3rem 0;">'
+        f'<img src="data:image/jpeg;base64,{_sidebar_logo_b64}" '
+        f'style="width:90px;height:90px;object-fit:contain;" alt="Mandalink" /></div>',
+        unsafe_allow_html=True
+    )
 
-st.sidebar.radio(
-    "Theme",
-    options=THEME_OPTIONS,
-    format_func=lambda t: THEME_LABEL[t],
-    horizontal=True,
-    key="theme",
+st.sidebar.markdown(
+    '<h2 style="text-align:center;color:#6B0000;margin:0.2rem 0 0 0;font-size:1.35rem;font-weight:900;">Mandalink</h2>',
+    unsafe_allow_html=True
 )
-st.sidebar.markdown("---")
+st.sidebar.markdown(
+    '<p style="text-align:center;color:#8B1A1A;font-size:0.8rem;margin:0 0 1rem 0;">Chinese Radicals Simplified</p>',
+    unsafe_allow_html=True
+)
 
 for label in [
     "Learn",
@@ -703,7 +584,7 @@ for label in [
 
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
-    st.session_state.app_page = "about"
+    st.session_state.app_page = "home"
     st.rerun()
 
 # --------------------------------------------------
@@ -720,11 +601,11 @@ if user_data:
 # LEARN (WITH SEARCH AND AUDIO)
 # --------------------------------------------------
 if st.session_state.page == "Learn":
-    st.title("📘 Radical Meanings")
-    
+    st.title("Radical Meanings")
+
     # Search bar
-    search_query = st.text_input("🔍 Search radicals by meaning, pinyin, or character...", key="learn_search")
-    
+    search_query = st.text_input("Search radicals by meaning, pinyin, or character...", key="learn_search")
+
     # Filter radicals based on search
     if search_query:
         filtered = RADICALS[
@@ -734,7 +615,7 @@ if st.session_state.page == "Learn":
         ]
     else:
         filtered = RADICALS
-    
+
     # Display results
     if len(filtered) == 0:
         st.warning("No radicals found matching your search.")
@@ -743,64 +624,90 @@ if st.session_state.page == "Learn":
         for _, r in filtered.iterrows():
             col1, col2 = st.columns([1, 10])
             with col1:
-                st.markdown(f"## {r.radical}")
+                st.markdown(
+                    f'<p style="font-size:2.4rem;font-weight:700;color:#5C0E0E;margin:0.2rem 0;">{r.radical}</p>',
+                    unsafe_allow_html=True
+                )
             with col2:
-                st.markdown(f"### {r.meaning}")
+                st.markdown(
+                    f'<h3 style="color:#8B1A1A;margin:0.2rem 0 0.1rem 0;">{r.meaning}</h3>',
+                    unsafe_allow_html=True
+                )
                 if "pinyin" in r and pd.notna(r.pinyin):
-                    st.markdown(f'<p style="color: #fde047; font-size: 1.1rem; margin-top: -0.5rem; font-weight: 500;">{r.pinyin}</p>', unsafe_allow_html=True)
-                    audio_html = create_audio_button_html(r.pinyin, "🔊 Listen")
+                    st.markdown(
+                        f'<p style="color:#5C0E0E;font-size:1.05rem;margin:0 0 0.3rem 0;font-weight:500;">{r.pinyin}</p>',
+                        unsafe_allow_html=True
+                    )
+                    audio_html = create_audio_button_html(r.pinyin, "Listen")
                     if audio_html:
                         st.components.v1.html(audio_html, height=50)
-            st.markdown('<div style="border-bottom: 1px solid rgba(212,175,55,0.2); margin: 1rem 0;"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="border-bottom:1px solid rgba(155,68,68,0.22);margin:0.8rem 0;"></div>',
+                unsafe_allow_html=True
+            )
 
 # --------------------------------------------------
 # FLASHCARDS (WITH AUDIO)
 # --------------------------------------------------
 elif st.session_state.page == "Flashcards":
-    st.title("🃏 Flashcards")
+    st.title("Flashcards")
+    st.markdown(
+        "Flash cards are a fantastic way to enhance your learning! To use them effectively, "
+        "start by writing a question or term on one side and the answer or definition on the other. "
+        "Shuffle the cards and go through them regularly, testing yourself. You can also group them "
+        "by topic for focused study sessions. Happy learning!"
+    )
 
     if "card" not in st.session_state:
         st.session_state.card = RADICALS.sample(1).iloc[0]
 
     st.markdown(f"""
     <div class="game-card">
-        <div style="color: #fde047; font-size: 1.1rem; letter-spacing: 0.15rem; font-weight: 700; margin-bottom: -0.5rem;">MANDALINK RADICAL STUDY</div>
+        <div style="color:#ffffff;font-size:1rem;letter-spacing:0.15rem;font-weight:700;margin-bottom:0.2rem;text-transform:uppercase;">Mandalink Radical Study</div>
         <div class="radical-big">{st.session_state.card.radical}</div>
     """, unsafe_allow_html=True)
-    
-    # Add audio button for pinyin
-    if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin):
-        audio_html = create_audio_button_html(st.session_state.card.pinyin, "🔊 Pronunciation")
-        if audio_html:
-            st.components.v1.html(audio_html, height=50)
 
     show = st.checkbox("Show Meaning", key="flash_show")
-    
+
     if show:
         st.markdown(f"""
         <div style="
-            background: rgba(212, 175, 55, 0.1);
-            border: 1px solid #D4AF37;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin: 1.5rem 0;
+            background:rgba(255,255,255,0.18);
+            border:1px solid rgba(255,255,255,0.4);
+            padding:1.2rem;
+            border-radius:10px;
+            margin:1rem 0;
         ">
-            <h2 style="color: #fde047; margin: 0; font-size: 2rem;">{st.session_state.card.meaning}</h2>
-            {f'<p style="color: {text_soft}; font-size: 1.2rem; margin-top: 0.5rem;">Pinyin: {st.session_state.card.pinyin}</p>' if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin) else ''}
+            <h2 style="color:#ffffff;margin:0;font-size:1.8rem;">{st.session_state.card.meaning}</h2>
+            {f'<p style="color:#fef3c7;font-size:1.1rem;margin-top:0.4rem;">Pinyin: {st.session_state.card.pinyin}</p>' if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin) else ''}
         </div>
         """, unsafe_allow_html=True)
 
-    if st.button("Next Card ➡"):
-        st.session_state.card = RADICALS.sample(1).iloc[0]
-        st.rerun()
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # Pronunciation and Next buttons below the card
+    col_a, col_b = st.columns([3, 1])
+    with col_a:
+        if "pinyin" in st.session_state.card and pd.notna(st.session_state.card.pinyin):
+            audio_html = create_audio_button_html(st.session_state.card.pinyin, "Pronunciation")
+            if audio_html:
+                st.components.v1.html(audio_html, height=55)
+    with col_b:
+        if st.button("Next >", key="flash_next"):
+            st.session_state.card = RADICALS.sample(1).iloc[0]
+            st.rerun()
+
 # --------------------------------------------------
-# GAME 
+# GAME
 # --------------------------------------------------
 elif st.session_state.page == "Game":
-    st.title("🎮 Guess the Meaning")
+    st.title("Guess the Meaning")
+    st.markdown(
+        "Flash cards are a fantastic way to enhance your learning! To use them effectively, "
+        "start by writing a question or term on one side and the answer or definition on the other. "
+        "Shuffle the cards and go through them regularly, testing yourself. You can also group them "
+        "by topic for focused study sessions. Happy learning!"
+    )
 
     if st.session_state.question is None or st.session_state.correct:
         q = RADICALS.sample(1).iloc[0]
@@ -819,18 +726,25 @@ elif st.session_state.page == "Game":
 
     st.markdown(f"""
     <div class="game-card">
-        <div style="color: #fde047; font-size: 1.1rem; letter-spacing: 0.15rem; font-weight: 700; margin-bottom: -0.5rem;">MANDALINK QUIZ CHALLENGE</div>
+        <div style="color:#ffffff;font-size:1rem;letter-spacing:0.15rem;font-weight:700;margin-bottom:0.2rem;text-transform:uppercase;">Mandalink Quiz Challenge</div>
         <div class="radical-big">{q.radical}</div>
+    </div>
     """, unsafe_allow_html=True)
-    
+
     # Show attempt counter if user has tried
     if st.session_state.attempts > 0:
         st.caption(f"Attempt #{st.session_state.attempts + 1}")
 
+    st.markdown(
+        '<p style="color:#5C0E0E;font-weight:600;margin:0.8rem 0 0.3rem 0;">Select one of the options below</p>',
+        unsafe_allow_html=True
+    )
+
     for opt in opts:
+        st.markdown('<div class="answer-opt">', unsafe_allow_html=True)
         if st.button(opt, key=f"game_{opt}", disabled=st.session_state.correct):
             st.session_state.attempts += 1
-            
+
             if opt == q.meaning:
                 # Correct answer!
                 if not st.session_state.already_earned_xp:
@@ -841,7 +755,7 @@ elif st.session_state.page == "Game":
                 else:
                     # Got it right after retries - no XP
                     st.success("✅ Correct!")
-                
+
                 st.session_state.correct = True
             else:
                 # Wrong answer - allow retry
@@ -849,46 +763,50 @@ elif st.session_state.page == "Game":
                     st.error("❌ Not quite! Try again")
                 else:
                     st.error("❌ Keep trying! You'll get it")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if st.session_state.correct:
-        if st.button("➡ Next Question"):
-            st.session_state.question = None
-            st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
+        _, col_next = st.columns([3, 1])
+        with col_next:
+            if st.button("Next >", key="game_next"):
+                st.session_state.question = None
+                st.rerun()
 
 # --------------------------------------------------
-# TIMED MODE 
+# TIMED MODE
 # --------------------------------------------------
 elif st.session_state.page == "Timed Mode":
-    st.title("⏱️ Timed Mode")
+    st.title("Timed Mode")
 
     # RESULTS SCREEN
     if st.session_state.timed_results:
         st.markdown('<div class="game-card">', unsafe_allow_html=True)
-        st.markdown('<h1 style="color: #D4AF37;">🎮 Challenge Complete!</h1>', unsafe_allow_html=True)
-        
+        st.markdown('<h1 style="color:#ffffff;">🎮 Challenge Complete!</h1>', unsafe_allow_html=True)
+
         acc = (st.session_state.timed_correct / st.session_state.timed_total * 100) if st.session_state.timed_total > 0 else 0
-        
+
         st.markdown(f"""
-        <div style="display: flex; justify-content: space-around; gap: 1rem; margin: 2rem 0;">
-            <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
-                <div style="color: {text_soft}; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">⭐ Final Score</div>
-                <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{st.session_state.timed_score}</div>
+        <div style="display:flex;justify-content:space-around;gap:1rem;margin:2rem 0;">
+            <div style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);padding:1.5rem;border-radius:12px;text-align:center;flex:1;">
+                <div style="color:#ffffff;font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1rem;">⭐ Final Score</div>
+                <div style="color:#ffffff;font-size:2.2rem;font-weight:900;margin-top:0.5rem;">{st.session_state.timed_score}</div>
             </div>
-            <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
-                <div style="color: {text_soft}; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">✅ Correct</div>
-                <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{st.session_state.timed_correct}/{st.session_state.timed_total}</div>
+            <div style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);padding:1.5rem;border-radius:12px;text-align:center;flex:1;">
+                <div style="color:#ffffff;font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1rem;">✅ Correct</div>
+                <div style="color:#ffffff;font-size:2.2rem;font-weight:900;margin-top:0.5rem;">{st.session_state.timed_correct}/{st.session_state.timed_total}</div>
             </div>
-            <div style="background: rgba(212, 175, 55, 0.15); border: 2px solid #D4AF37; padding: 1.5rem; border-radius: 16px; text-align: center; flex: 1;">
-                <div style="color: {text_soft}; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1rem;">🎯 Accuracy</div>
-                <div style="color: #ffffff; font-size: 2.2rem; font-weight: 900; margin-top: 0.5rem;">{int(acc)}%</div>
+            <div style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.35);padding:1.5rem;border-radius:12px;text-align:center;flex:1;">
+                <div style="color:#ffffff;font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1rem;">🎯 Accuracy</div>
+                <div style="color:#ffffff;font-size:2.2rem;font-weight:900;margin-top:0.5rem;">{int(acc)}%</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-            
-        st.markdown(f"### You earned **{st.session_state.timed_correct * 15} XP** this round!")
-        
+
+        st.markdown(
+            f'<p style="color:#ffffff;font-size:1.1rem;">You earned <strong>{st.session_state.timed_correct * 15} XP</strong> this round!</p>',
+            unsafe_allow_html=True
+        )
+
         if st.button("🔄 Play Again", type="primary", use_container_width=True):
             st.session_state.timed_results = False
             st.session_state.timer_running = True
@@ -899,7 +817,7 @@ elif st.session_state.page == "Timed Mode":
             st.session_state.question = None
             st.session_state.timed_feedback = None
             st.rerun()
-            
+
         if st.button("🏠 Back to Learn", use_container_width=True):
             st.session_state.page = "Learn"
             st.rerun()
@@ -909,9 +827,9 @@ elif st.session_state.page == "Timed Mode":
     # START SCREEN
     if not st.session_state.timer_running:
         st.markdown('<div class="game-card">', unsafe_allow_html=True)
-        st.markdown(f"""
-        <h2 style="color: #D4AF37;">Are you ready?</h2>
-        <p style="color: {text_soft};">You have 60 seconds to identify as many radicals as possible. Each correct answer is worth 15 XP!</p>
+        st.markdown("""
+        <h2 style="color:#ffffff;">Are you ready?</h2>
+        <p style="color:#fef3c7;">You have 60 seconds to identify as many radicals as possible. Each correct answer is worth 15 XP!</p>
         """, unsafe_allow_html=True)
         if st.button("🚀 Start 60s Challenge", type="primary", use_container_width=True):
             st.session_state.timer_running = True
@@ -929,11 +847,11 @@ elif st.session_state.page == "Timed Mode":
         # Stats Bar
         cols = st.columns([1, 1, 1])
         with cols[0]:
-            st.markdown(f"### ⏳ {st.session_state.time_left}s")
+            st.markdown(f'<h3 style="color:#6B0000;">⏳ {st.session_state.time_left}s</h3>', unsafe_allow_html=True)
         with cols[1]:
-            st.markdown(f"<h3 style='text-align: center; color: #D4AF37;'>Score: {st.session_state.timed_score}</h3>", unsafe_allow_html=True)
+            st.markdown(f'<h3 style="text-align:center;color:#6B0000;">Score: {st.session_state.timed_score}</h3>', unsafe_allow_html=True)
         with cols[2]:
-            st.markdown(f"<h3 style='text-align: right;'>✅ {st.session_state.timed_correct}/{st.session_state.timed_total}</h3>", unsafe_allow_html=True)
+            st.markdown(f'<h3 style="text-align:right;color:#6B0000;">✅ {st.session_state.timed_correct}/{st.session_state.timed_total}</h3>', unsafe_allow_html=True)
 
         if st.session_state.question is None:
             q = RADICALS.sample(1).iloc[0]
@@ -947,28 +865,30 @@ elif st.session_state.page == "Timed Mode":
 
         st.markdown(f"""
         <div class="game-card">
-            <div style="color: #fde047; font-size: 1.1rem; letter-spacing: 0.15rem; font-weight: 700; margin-bottom: -0.5rem;">MANDALINK SPEED CHALLENGE</div>
+            <div style="color:#ffffff;font-size:1rem;letter-spacing:0.15rem;font-weight:700;margin-bottom:0.2rem;text-transform:uppercase;">Mandalink Speed Challenge</div>
             <div class="radical-big">{q.radical}</div>
         """, unsafe_allow_html=True)
 
         # Feedback Display
         if st.session_state.timed_feedback:
             st.markdown(st.session_state.timed_feedback, unsafe_allow_html=True)
-            st.session_state.timed_feedback = None 
+            st.session_state.timed_feedback = None
 
         for opt in opts:
+            st.markdown('<div class="answer-opt">', unsafe_allow_html=True)
             if st.button(opt, key=f"timed_{opt}", use_container_width=True):
                 st.session_state.timed_total += 1
                 if opt == q.meaning:
                     st.session_state.timed_correct += 1
                     st.session_state.timed_score += 25
-                    st.session_state.timed_feedback = '<div style="color: #16a34a; font-weight: bold; margin-bottom: 1rem;">✅ Correct! +25 XP</div>'
+                    st.session_state.timed_feedback = '<div style="color:#16a34a;font-weight:bold;margin-bottom:0.5rem;">✅ Correct! +25 XP</div>'
                     update_xp(st.session_state.user, 5)
                 else:
-                    st.session_state.timed_feedback = '<div style="color: #dc2626; font-weight: bold; margin-bottom: 1rem;">❌ Wrong!</div>'
-                
+                    st.session_state.timed_feedback = '<div style="color:#dc2626;font-weight:bold;margin-bottom:0.5rem;">❌ Wrong!</div>'
+
                 st.session_state.question = None
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -987,7 +907,7 @@ elif st.session_state.page == "Timed Mode":
 # LEADERBOARD
 # --------------------------------------------------
 elif st.session_state.page == "Leaderboard":
-    st.title("🏆 Leaderboard")
+    st.title("Leaderboard")
     leaderboard_data = get_leaderboard()
     if leaderboard_data:
         df = pd.DataFrame(leaderboard_data)
@@ -996,14 +916,14 @@ elif st.session_state.page == "Leaderboard":
         st.info("No users yet!")
 
 # --------------------------------------------------
-# STROKE ORDER 
+# STROKE ORDER
 # --------------------------------------------------
 elif st.session_state.page == "Stroke Order":
-    st.title("✍️ Interactive Stroke Order")
-    
+    st.title("Interactive Stroke Order")
+
     # Search bar
-    search_query = st.text_input("🔍 Search radicals by meaning, pinyin, or character...", key="stroke_search")
-    
+    search_query = st.text_input("Search radicals by meaning, pinyin, or character...", key="stroke_search")
+
     # Filter radicals based on search
     if search_query:
         filtered = RADICALS[
@@ -1013,14 +933,14 @@ elif st.session_state.page == "Stroke Order":
         ]
     else:
         filtered = RADICALS
-    
+
     # Mode selection
     col1, col2 = st.columns([3, 1])
     with col1:
         st.caption(f"Showing {len(filtered)} radical(s)")
     with col2:
         mode = st.selectbox("Mode", ["Demo", "Practice"], label_visibility="collapsed")
-    
+
     if len(filtered) == 0:
         st.warning("No radicals found matching your search.")
     else:
@@ -1032,39 +952,37 @@ elif st.session_state.page == "Stroke Order":
                 if i + j < len(filtered):
                     radical_row = filtered.iloc[i + j]
                     # Extract only the primary character (e.g., '人' from '人 (亻)')
-                    radical = radical_row['radical'][0] 
+                    radical = radical_row['radical'][0]
                     meaning = radical_row['meaning']
                     pinyin = radical_row.get('pinyin', '')
-                    
+
                     with col:
                         # Create a card for each radical
                         with st.container():
                             st.markdown(f"""
                             <div style="
-                                background: rgba(255, 255, 255, 0.05);
-                                padding: 1.5rem;
-                                border-radius: 16px;
-                                text-align: center;
-                                backdrop-filter: blur(8px);
-                                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                                border: 1px solid rgba(212, 175, 55, 0.25);
-                                margin-bottom: 1rem;
+                                background:rgba(255,255,255,0.42);
+                                padding:1.2rem;
+                                border-radius:12px;
+                                text-align:center;
+                                border:1px solid rgba(155,68,68,0.22);
+                                margin-bottom:1rem;
                             ">
-                                <h3 style="color: #D4AF37; margin: 0; font-size: 1.2rem; font-weight: 700;">{meaning}</h3>
-                                <p style="color: {text_soft}; margin: 0.25rem 0; font-size: 1rem; font-weight: 500; opacity: 0.9;">{pinyin if pinyin else ''}</p>
+                                <h3 style="color:#8B1A1A;margin:0;font-size:1.1rem;font-weight:700;">{meaning}</h3>
+                                <p style="color:#5C0E0E;margin:0.2rem 0;font-size:0.95rem;font-weight:500;">{pinyin if pinyin else ''}</p>
                             </div>
                             """, unsafe_allow_html=True)
-                            
+
                             # Add audio button if pinyin exists
                             if pinyin and pd.notna(pinyin):
                                 audio_html = create_audio_button_html(pinyin, "🔊")
                                 if audio_html:
                                     st.components.v1.html(audio_html, height=50)
-                            
+
                             # Hanzi Writer container
                             writer_id = f"writer_{i}_{j}"
                             practice_id = f"practice_{i}_{j}"
-                            
+
                             if mode == "Demo":
                                 # Demo mode - animated stroke order
                                 st.components.v1.html(f"""
@@ -1083,10 +1001,10 @@ elif st.session_state.page == "Stroke Order":
                                             flex-direction: column;
                                             align-items: center;
                                             padding: 1.2rem;
-                                            background: {panel_bg};
-                                            border-radius: 16px;
-                                            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-                                            border: 2px solid #D4AF37;
+                                            background: #ffffff;
+                                            border-radius: 12px;
+                                            box-shadow: 0 4px 16px rgba(107,0,0,0.1);
+                                            border: 1.5px solid #C8A0A0;
                                         }}
                                         .controls {{
                                             margin-top: 1rem;
@@ -1096,8 +1014,8 @@ elif st.session_state.page == "Stroke Order":
                                         button {{
                                             padding: 0.5rem 1rem;
                                             border: none;
-                                            border-radius: 8px;
-                                            background: #b91c1c;
+                                            border-radius: 6px;
+                                            background: #9B4444;
                                             color: white;
                                             cursor: pointer;
                                             font-size: 0.9rem;
@@ -1105,9 +1023,8 @@ elif st.session_state.page == "Stroke Order":
                                             transition: all 0.2s;
                                         }}
                                         button:hover {{
-                                            background: #991b1b;
+                                            background: #6B0000;
                                             transform: translateY(-2px);
-                                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
                                         }}
                                         button:active {{
                                             transform: translateY(0);
@@ -1135,12 +1052,12 @@ elif st.session_state.page == "Stroke Order":
                                             padding: 5,
                                             strokeAnimationSpeed: 2,
                                             delayBetweenStrokes: 200,
-                                            strokeColor: '#b91c1c',
-                                            radicalColor: '#dc2626',
+                                            strokeColor: '#9B4444',
+                                            radicalColor: '#6B0000',
                                             showOutline: true,
                                             showCharacter: false
                                         }});
-                                        
+
                                         // Auto-animate on load
                                         setTimeout(() => writer.animateCharacter(), 500);
                                     </script>
@@ -1165,10 +1082,10 @@ elif st.session_state.page == "Stroke Order":
                                             flex-direction: column;
                                             align-items: center;
                                             padding: 1.2rem;
-                                            background: {panel_bg};
-                                            border-radius: 16px;
-                                            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-                                            border: 2px solid #D4AF37;
+                                            background: #ffffff;
+                                            border-radius: 12px;
+                                            box-shadow: 0 4px 16px rgba(107,0,0,0.1);
+                                            border: 1.5px solid #C8A0A0;
                                         }}
                                         .controls {{
                                             margin-top: 1rem;
@@ -1180,8 +1097,8 @@ elif st.session_state.page == "Stroke Order":
                                         button {{
                                             padding: 0.5rem 1rem;
                                             border: none;
-                                            border-radius: 8px;
-                                            background: #b91c1c;
+                                            border-radius: 6px;
+                                            background: #9B4444;
                                             color: white;
                                             cursor: pointer;
                                             font-size: 0.85rem;
@@ -1189,9 +1106,9 @@ elif st.session_state.page == "Stroke Order":
                                             transition: all 0.2s;
                                         }}
                                         button:hover {{
-                                            background: #991b1b;
+                                            background: #6B0000;
                                             transform: translateY(-2px);
-                                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                                            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
                                         }}
                                         button:disabled {{
                                             background: #ccc;
@@ -1232,9 +1149,9 @@ elif st.session_state.page == "Stroke Order":
                                             padding: 5,
                                             showOutline: true,
                                             strokeColor: '#16a34a',
-                                            radicalColor: '#dc2626'
+                                            radicalColor: '#9B4444'
                                         }});
-                                        
+
                                         var quiz = writer.quiz({{
                                             onMistake: function(strokeData) {{
                                                 document.getElementById('message').innerHTML = '<span style="color: #dc2626;">❌ Try again!</span>';
@@ -1248,7 +1165,7 @@ elif st.session_state.page == "Stroke Order":
                                                 document.getElementById('reset-btn').className = 'success';
                                             }}
                                         }});
-                                        
+
                                         function resetQuiz() {{
                                             quiz.cancel();
                                             quiz = writer.quiz({{
@@ -1272,17 +1189,17 @@ elif st.session_state.page == "Stroke Order":
                                 </body>
                                 </html>
                                 """, height=340)
-    
+
     # Instructions
     st.markdown("---")
     st.markdown("""
     ### 📚 How to Use
-    
+
     **Demo Mode:**
     - Click **▶ Animate** to see the stroke order animation
     - Click **👁 Show** to reveal the complete character
     - Click **🚫 Hide** to hide the character
-    
+
     **Practice Mode:**
     - Draw the radical stroke by stroke in the correct order
     - Click **💡 Hint** if you get stuck
@@ -1294,10 +1211,10 @@ elif st.session_state.page == "Stroke Order":
 # AI HELP
 # --------------------------------------------------
 elif st.session_state.page == "AI Help":
-    st.title("🤖 AI Radical Helper")
+    st.title("AI Radical Helper")
     q = st.text_area("Ask about a radical")
 
-    if st.button("Ask"):
+    if st.button("Ask", type="primary"):
         with st.spinner("Thinking..."):
             res = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
